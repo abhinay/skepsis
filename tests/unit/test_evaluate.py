@@ -35,8 +35,9 @@ def test_returns_only_path() -> None:
 
 def test_full_path_detects_skilled_strategy() -> None:
     r, trials, params = _sweep()
-    res = skepsis.evaluate(r, trials=trials, params=params, freq="daily",
-                           n_resamples=500, seed=0)
+    with pytest.warns(SkepsisWarning):
+        res = skepsis.evaluate(r, trials=trials, params=params, freq="daily",
+                               n_resamples=500, seed=0)
     assert res.pbo is not None and res.sensitivity is not None
     assert not res.deflated_sharpe.single_trial and res.deflated_sharpe.n_trials == 9
     assert res.meta["chosen_label"] == "trial_4"  # auto-detected via allclose
@@ -47,9 +48,11 @@ def test_full_path_detects_skilled_strategy() -> None:
 def test_chosen_by_label_with_pandas_trials() -> None:
     r, trials, params = _sweep()
     df = pd.DataFrame(trials, columns=[f"s{i}" for i in range(9)])
-    res = skepsis.evaluate(r, trials=df, params=params, chosen="s4", n_resamples=200)
+    with pytest.warns(SkepsisWarning):
+        res = skepsis.evaluate(r, trials=df, params=params, chosen="s4", n_resamples=200)
     assert res.meta["chosen_label"] == "s4"
-    res2 = skepsis.evaluate(r, trials=df, params=params, chosen=4, n_resamples=200)
+    with pytest.warns(SkepsisWarning):
+        res2 = skepsis.evaluate(r, trials=df, params=params, chosen=4, n_resamples=200)
     assert res2.meta["chosen_label"] == "s4"
 
 
@@ -65,8 +68,10 @@ def test_small_sample_skips_pbo_and_bootstrap() -> None:
 
 def test_to_dict_is_json_serializable_and_deterministic() -> None:
     r, trials, params = _sweep()
-    a = skepsis.evaluate(r, trials=trials, params=params, n_resamples=200, seed=7)
-    b = skepsis.evaluate(r, trials=trials, params=params, n_resamples=200, seed=7)
+    with pytest.warns(SkepsisWarning):
+        a = skepsis.evaluate(r, trials=trials, params=params, n_resamples=200, seed=7)
+    with pytest.warns(SkepsisWarning):
+        b = skepsis.evaluate(r, trials=trials, params=params, n_resamples=200, seed=7)
     da, db = a.to_dict(), b.to_dict()
     assert json.dumps(da, sort_keys=True) == json.dumps(db, sort_keys=True)
     assert da["verdict"]["level"] == a.verdict.level
