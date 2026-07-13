@@ -141,7 +141,7 @@ class Result:
 
     def save_html(self, path: str | Path) -> Path:
         """Render the self-contained HTML report (report module lands in Task 10)."""
-        from skepsis.report.render import render_html  # type: ignore[import-not-found]
+        from skepsis.report.render import render_html
 
         out = Path(path)
         out.write_text(render_html(self), encoding="utf-8")
