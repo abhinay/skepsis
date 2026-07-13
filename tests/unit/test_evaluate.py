@@ -73,7 +73,9 @@ def test_to_dict_is_json_serializable_and_deterministic() -> None:
     with pytest.warns(SkepsisWarning):
         b = skepsis.evaluate(r, trials=trials, params=params, n_resamples=200, seed=7)
     da, db = a.to_dict(), b.to_dict()
-    assert json.dumps(da, sort_keys=True) == json.dumps(db, sort_keys=True)
+    assert json.dumps(da, sort_keys=True, allow_nan=False) == json.dumps(
+        db, sort_keys=True, allow_nan=False
+    )
     assert da["verdict"]["level"] == a.verdict.level
     assert "value" in da["psr"] and "p_value_no_skill" in da["bootstrap"]
 

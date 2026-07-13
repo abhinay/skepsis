@@ -45,7 +45,7 @@ def expected_max_sharpe(var_trial_sr: float, n_trials: int) -> float:
     """E[max periodic SR] across n_trials strategies under the no-skill null.
 
     E[max SR] ~= sqrt(V) * ((1-gamma) * z(1 - 1/N) + gamma * z(1 - 1/(N*e)))
-    where gamma is the Euler-Mascheroni constant. Returns 0.0 for n_trials <= 1
+    where gamma is the Euler-Mascheroni constant. Returns 0.0 for n_trials == 1
     (a single trial has no selection bias; the formula diverges at N=1).
     """
     if var_trial_sr < 0.0:

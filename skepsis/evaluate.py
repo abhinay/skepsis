@@ -1,5 +1,6 @@
 """Orchestration: run every diagnostic the inputs allow, assemble a Result."""
 
+import math
 import warnings as _warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +23,11 @@ from skepsis.inputs import coerce_params, coerce_returns, coerce_trials, validat
 from skepsis.verdict import Thresholds, Verdict, decide
 
 _MIN_BOOTSTRAP_OBS = 50
+
+
+def _finite_or_none(x: float) -> float | None:
+    """Map non-finite floats to None so to_dict emits strict RFC-compliant JSON."""
+    return x if math.isfinite(x) else None
 
 
 @dataclass(frozen=True)
@@ -109,8 +115,8 @@ class Result:
             }
         if self.sensitivity is not None:
             d["sensitivity"] = {
-                "stability_score": self.sensitivity.stability_score,
-                "neighbor_median": self.sensitivity.neighbor_median,
+                "stability_score": _finite_or_none(self.sensitivity.stability_score),
+                "neighbor_median": _finite_or_none(self.sensitivity.neighbor_median),
                 "k": self.sensitivity.k,
                 "flagged": self.sensitivity.flagged,
             }
