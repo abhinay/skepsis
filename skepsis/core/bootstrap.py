@@ -135,7 +135,7 @@ def bootstrap(
     sharpe_obs = annualized_sharpe(returns, periods)
     null_dist = _sharpe_rows((returns - returns.mean())[idx], periods)
     null_dist = null_dist[np.isfinite(null_dist)]
-    p_value = float(1 + np.sum(null_dist >= sharpe_obs)) / (len(null_dist) + 1)
+    p_value = float(1 + np.sum(null_dist >= sharpe_obs)) / (n_resamples + 1)
 
     lo, hi = (1.0 - ci) / 2.0, 1.0 - (1.0 - ci) / 2.0
     return BootstrapResult(
