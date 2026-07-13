@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 import skepsis
+from skepsis.exceptions import SkepsisWarning
 
 
 @pytest.fixture(scope="module")
@@ -13,9 +14,10 @@ def full_result() -> skepsis.Result:
     params = pd.DataFrame(
         {"window": np.repeat([10, 20, 30], 3), "threshold": np.tile([0.1, 0.2, 0.3], 3)}
     )
-    return skepsis.evaluate(
-        trials[:, 4].copy(), trials=trials, params=params, n_resamples=300, seed=0
-    )
+    with pytest.warns(SkepsisWarning, match="non-positive"):
+        return skepsis.evaluate(
+            trials[:, 4].copy(), trials=trials, params=params, n_resamples=300, seed=0
+        )
 
 
 @pytest.fixture(scope="module")
