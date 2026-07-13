@@ -52,3 +52,31 @@ def test_custom_thresholds() -> None:
                stability_score=1.1, thresholds=lax)
     assert v.level == "STRONG"
     assert isinstance(v, Verdict)
+
+
+def test_bootstrap_warn_branch() -> None:
+    v = decide(dsr=0.99, dsr_single_trial=False, pbo=0.10, bootstrap_p=0.30,
+               stability_score=1.1)
+    assert v.level == "MODERATE"
+    assert any("bootstrap" in r and "warn" in r for r in v.reasons)
+
+
+def test_bootstrap_fail_branch() -> None:
+    v = decide(dsr=0.99, dsr_single_trial=False, pbo=0.10, bootstrap_p=0.60,
+               stability_score=1.1)
+    assert v.level == "LIKELY_OVERFIT"
+    assert any("bootstrap" in r and "fail" in r for r in v.reasons)
+
+
+def test_dsr_fail_branch() -> None:
+    v = decide(dsr=0.40, dsr_single_trial=False, pbo=0.10, bootstrap_p=0.01,
+               stability_score=1.1)
+    assert v.level == "LIKELY_OVERFIT"
+    assert any("DSR" in r and "fail" in r for r in v.reasons)
+
+
+def test_finite_sensitivity_warn_branch() -> None:
+    v = decide(dsr=0.99, dsr_single_trial=False, pbo=0.10, bootstrap_p=0.01,
+               stability_score=1.7)
+    assert v.level == "MODERATE"
+    assert any("stability" in r and "warn" in r for r in v.reasons)
