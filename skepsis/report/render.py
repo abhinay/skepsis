@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 import jinja2
 from plotly.offline import get_plotlyjs
 
+from skepsis.formatting import count_trials, format_stability
 from skepsis.report import figures as figmod
 
 if TYPE_CHECKING:
@@ -47,4 +48,10 @@ def render_html(result: "Result") -> str:
         meta=result.meta,
         figures=figs,
         plotly_js=get_plotlyjs(),
+        stability_text=(
+            format_stability(result.sensitivity.stability_score)
+            if result.sensitivity is not None
+            else None
+        ),
+        n_trials_text=count_trials(int(result.meta["n_trials"])),
     )

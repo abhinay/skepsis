@@ -80,3 +80,10 @@ def test_finite_sensitivity_warn_branch() -> None:
                stability_score=1.7)
     assert v.level == "MODERATE"
     assert any("stability" in r and "warn" in r for r in v.reasons)
+
+
+def test_infinite_stability_reason_is_formatted() -> None:
+    v = decide(dsr=0.99, dsr_single_trial=False, pbo=0.10, bootstrap_p=0.01,
+               stability_score=math.inf)
+    assert any("∞ (isolated spike)" in r for r in v.reasons)
+    assert not any("inf >" in r for r in v.reasons)

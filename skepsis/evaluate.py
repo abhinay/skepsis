@@ -10,6 +10,7 @@ import numpy as np
 
 from skepsis import __version__
 from skepsis.core import moments
+from skepsis.core.bootstrap import MIN_OBS as _MIN_BOOTSTRAP_OBS
 from skepsis.core.bootstrap import BootstrapResult, bootstrap
 from skepsis.core.pbo import PboResult, cscv
 from skepsis.core.psr import (
@@ -19,10 +20,13 @@ from skepsis.core.psr import (
 )
 from skepsis.core.sensitivity import SensitivityResult, sensitivity
 from skepsis.exceptions import InvalidInputError, SkepsisWarning
+from skepsis.formatting import count_trials, format_stability
 from skepsis.inputs import coerce_params, coerce_returns, coerce_trials, validate_alignment
 from skepsis.verdict import Thresholds, Verdict, decide
 
-_MIN_BOOTSTRAP_OBS = 50
+_AUTOCORR_WARN_BLOCK_LENGTH = 10.0
+"""Politis-White mean block length above which returns are considered heavily
+autocorrelated; PSR/DSR assume IID-ish returns, so skepsis warns."""
 
 
 def _finite_or_none(x: float) -> float | None:
@@ -127,7 +131,7 @@ class Result:
             f"skepsis {self.meta['skepsis_version']} — verdict: {self.verdict.level}",
             f"  annualized Sharpe: {self.psr.sharpe_annualized:.3f}  "
             f"(PSR {self.psr.value:.3f}, DSR {self.deflated_sharpe.value:.3f} "
-            f"over {self.deflated_sharpe.n_trials} trial(s))",
+            f"over {count_trials(self.deflated_sharpe.n_trials)})",
         ]
         if self.pbo is not None:
             lines.append(f"  PBO: {self.pbo.value:.3f} ({self.pbo.n_combinations} combinations)")
@@ -138,7 +142,9 @@ class Result:
                 f"{self.bootstrap.sharpe_ci[1]:.2f}]"
             )
         if self.sensitivity is not None:
-            lines.append(f"  stability score: {self.sensitivity.stability_score:.2f}")
+            lines.append(
+                f"  stability score: {format_stability(self.sensitivity.stability_score)}"
+            )
         for reason in self.verdict.reasons:
             lines.append(f"  - {reason}")
         for name, why in self.skipped.items():
@@ -227,6 +233,14 @@ def evaluate(
     with _warnings.catch_warnings(record=True) as caught:
         _warnings.simplefilter("always")
 
+        if chosen is not None and params_arr is None:
+            _warnings.warn(
+                "`chosen=` was provided without `params=`; it only affects the "
+                "sensitivity diagnostic and is ignored",
+                SkepsisWarning,
+                stacklevel=2,
+            )
+
         n_obs = len(r)
         sr_p = moments.sharpe(r)
         skew = moments.skewness(r)
@@ -291,6 +305,15 @@ def evaluate(
             skipped["bootstrap"] = f"needs >= {_MIN_BOOTSTRAP_OBS} observations, got {n_obs}"
         else:
             boot_res = bootstrap(r, periods, n_resamples=n_resamples, seed=seed)
+            if boot_res.mean_block_length > _AUTOCORR_WARN_BLOCK_LENGTH:
+                _warnings.warn(
+                    f"estimated mean block length {boot_res.mean_block_length:.1f} "
+                    f"exceeds {_AUTOCORR_WARN_BLOCK_LENGTH:.0f}: returns are heavily "
+                    "autocorrelated, which strains the IID-ish assumptions behind "
+                    "PSR/DSR — read those diagnostics with extra skepticism",
+                    SkepsisWarning,
+                    stacklevel=2,
+                )
 
         sens_res: SensitivityResult | None = None
         if params_arr is None:

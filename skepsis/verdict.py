@@ -5,6 +5,8 @@ reported. It never replaces reading the diagnostics themselves."""
 import math
 from dataclasses import dataclass
 
+from skepsis.formatting import format_stability
+
 _LEVELS = ("STRONG", "MODERATE", "WEAK", "LIKELY_OVERFIT")
 
 
@@ -66,11 +68,13 @@ def decide(
             warns.append("sensitivity undefined: chosen configuration has non-positive metric")
         elif stability_score > t.sensitivity_fail:  # inf lands here
             fails.append(
-                f"stability score {stability_score:.2f} > {t.sensitivity_fail} (fail)"
+                f"stability score {format_stability(stability_score)} > "
+                f"{t.sensitivity_fail} (fail)"
             )
         elif stability_score > t.sensitivity_warn:
             warns.append(
-                f"stability score {stability_score:.2f} > {t.sensitivity_warn} (warn)"
+                f"stability score {format_stability(stability_score)} > "
+                f"{t.sensitivity_warn} (warn)"
             )
 
     if fails:

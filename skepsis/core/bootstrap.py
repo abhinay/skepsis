@@ -18,14 +18,14 @@ import numpy as np
 from skepsis.core.moments import annualized_sharpe, max_drawdown
 from skepsis.exceptions import InsufficientDataError, InvalidInputError
 
-_MIN_OBS = 50
+MIN_OBS = 50
 
 
 def politis_white_block_length(x: np.ndarray) -> float:
     """Automatic mean block length for the stationary bootstrap (Politis-White 2004)."""
     n = len(x)
-    if n < _MIN_OBS:
-        raise InsufficientDataError(f"block-length selection needs >= {_MIN_OBS} obs, got {n}")
+    if n < MIN_OBS:
+        raise InsufficientDataError(f"block-length selection needs >= {MIN_OBS} obs, got {n}")
     kn = max(5, int(math.sqrt(math.log10(n))))
     m_max = int(math.ceil(math.sqrt(n))) + kn
     b_max = math.ceil(min(3.0 * math.sqrt(n), n / 3.0))
@@ -125,9 +125,9 @@ def bootstrap(
 ) -> BootstrapResult:
     """Stationary-bootstrap CIs for annualized Sharpe and max drawdown, plus
     a p-value against the no-skill (demeaned) null."""
-    if len(returns) < _MIN_OBS:
+    if len(returns) < MIN_OBS:
         raise InsufficientDataError(
-            f"bootstrap needs >= {_MIN_OBS} observations, got {len(returns)}"
+            f"bootstrap needs >= {MIN_OBS} observations, got {len(returns)}"
         )
     if not 0.5 < ci < 1.0:
         raise InvalidInputError(f"ci must be in (0.5, 1), got {ci}")

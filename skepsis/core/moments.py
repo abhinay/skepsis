@@ -5,6 +5,9 @@ Conventions (used across skepsis):
 - kurtosis is non-excess (normal = 3.0).
 - Core functions assume finite 1-D float input (validated upstream in skepsis.inputs)
   but still guard degenerate statistics.
+
+Reference: Sharpe, W. F. (1994), "The Sharpe Ratio", Journal of Portfolio
+Management 21(1), for the Sharpe ratio convention.
 """
 
 import numpy as np

@@ -93,3 +93,33 @@ def test_misalignment_raises() -> None:
     trials = np.random.default_rng(1).normal(0, 0.01, (99, 3))
     with pytest.raises(MisalignedTrialsError):
         skepsis.evaluate(r, trials=trials)
+
+
+def test_chosen_without_params_warns() -> None:
+    rng = np.random.default_rng(2)
+    trials = rng.normal(0.001, 0.01, size=(120, 3))
+    with pytest.warns(SkepsisWarning, match="ignored"):
+        res = skepsis.evaluate(trials[:, 0].copy(), trials=trials, chosen=0,
+                               n_resamples=100)
+    assert any("ignored" in w for w in res.warnings)
+
+
+def test_heavy_autocorrelation_warns() -> None:
+    rng = np.random.default_rng(5)
+    eps = rng.normal(0, 0.01, 600)
+    r = np.empty(600)
+    r[0] = 0.001
+    for t in range(1, 600):
+        r[t] = 0.001 + 0.85 * (r[t - 1] - 0.001) + eps[t]
+    with pytest.warns(SkepsisWarning, match="autocorrelated"):
+        res = skepsis.evaluate(r, n_resamples=100)
+    assert any("autocorrelated" in w for w in res.warnings)
+
+
+def test_summary_formats_inf_stability() -> None:
+    r, trials, params = _sweep()
+    with pytest.warns(SkepsisWarning):
+        res = skepsis.evaluate(r, trials=trials, params=params, n_resamples=200)
+    assert "∞ (isolated spike)" in res.summary()
+    assert "34 trials" not in res.summary()  # this sweep has 9 trials
+    assert "9 trials" in res.summary()
