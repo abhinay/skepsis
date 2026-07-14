@@ -20,3 +20,15 @@ jobs:
       - run: uv run ruff check .
       - run: uv run mypy skepsis
       - run: uv run pytest -q
+
+  notebook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --group demo
+      - run: >
+          uv run --group demo jupyter nbconvert --to notebook --execute
+          --stdout notebooks/deflating-the-golden-cross.ipynb > /dev/null
