@@ -1,8 +1,8 @@
 # API reference
 
-::: skepsis.evaluate
-::: skepsis.Result
-::: skepsis.Thresholds
+::: skepsis.evaluate.evaluate
+::: skepsis.evaluate.Result
+::: skepsis.verdict.Thresholds
 ::: skepsis.core.psr
 ::: skepsis.core.pbo
 ::: skepsis.core.bootstrap

@@ -30,7 +30,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          options: { show_source: true, docstring_section_style: list }
+          options: { show_root_heading: true, show_source: true, docstring_section_style: list }
 markdown_extensions:
   - admonition
   - pymdownx.superfences
