@@ -1,0 +1,24 @@
+name: release
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tag matches package version
+        run: |
+          VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          TAG="${{ github.event.release.tag_name }}"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "release tag $TAG does not match pyproject version v$VERSION" >&2
+            exit 1
+          fi
+      - uses: astral-sh/setup-uv@v5
+      - run: uv build
+      - uses: pypa/gh-action-pypi-publish@release/v1

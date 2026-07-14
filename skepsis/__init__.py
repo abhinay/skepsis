@@ -1,6 +1,6 @@
 """skepsis — is your backtest result real, or overfit?"""
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.1.0"
 
 from skepsis.evaluate import DsrResult, PsrResult, Result, evaluate  # noqa: E402
 from skepsis.verdict import Thresholds, Verdict  # noqa: E402

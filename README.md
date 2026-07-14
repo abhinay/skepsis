@@ -2,15 +2,19 @@
 
 > Is your backtest result real, or overfit?
 
+[![ci](https://github.com/abhinay/skepsis/actions/workflows/ci.yml/badge.svg)](https://github.com/abhinay/skepsis/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/skepsis)](https://pypi.org/project/skepsis/)
+[![docs](https://img.shields.io/badge/docs-abhinay.github.io%2Fskepsis-blue)](https://abhinay.github.io/skepsis)
+
+![skepsis report](docs/assets/report.png)
+
 skepsis takes the returns of a backtested strategy — and, ideally, the returns
 of **every variant you tried along the way** — and produces statistical
 evidence for or against the result being luck, plus a self-contained HTML
 report you can hand to a PM.
 
-**Status: pre-release.** Not yet on PyPI; install from git:
-
 ```bash
-pip install "skepsis @ git+https://github.com/abhinay/skepsis"
+pip install skepsis
 ```
 
 ## Quickstart
@@ -30,6 +34,8 @@ result.save_html("skepsis_report.html")
 
 More inputs unlock more diagnostics; the report states plainly which
 diagnostics could not run and why.
+
+Docs: <https://abhinay.github.io/skepsis> · Demo: [Deflating the Golden Cross](notebooks/deflating-the-golden-cross.ipynb)
 
 ## The diagnostics
 
