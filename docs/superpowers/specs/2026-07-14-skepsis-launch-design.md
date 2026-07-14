@@ -23,11 +23,11 @@ Take the finished skepsis v1 library public: real repo, real docs, a signature d
 
 ### 3.2 Backlog fixes (from the v1 final review)
 
-1. **Vectorize `stationary_bootstrap_indices`** — replace the per-resample Python loop (~9s for defaults when block length = 1) with batched numpy generation; special-case `mean_block_length == 1.0` as a single `rng.integers` draw. Target: default `evaluate()` path under 1.5s for index generation. All existing property/behavior tests stay green; add a performance regression test with a generous bound. The seeded resample stream MAY change — acceptable now, before any user depends on it; note it in the changelog.
+1. **Vectorize `stationary_bootstrap_indices`** — replace the per-resample Python loop (~9s for defaults when block length = 1) with batched numpy generation; special-case `mean_block_length == 1.0` as a single `rng.integers` draw. **Benchmark (component-level, exact call):** `stationary_bootstrap_indices(n_obs=4000, mean_block_length=1.0, n_resamples=5000)` — local development target < 1.0s; the CI regression test asserts a deliberately loose bound (< 10s) so loaded runners don't flake. All existing property/behavior tests stay green. The seeded resample stream MAY change — acceptable now, before any user depends on it; note it in the changelog.
 2. **Real URLs** — replace `github.com/abhinay/skepsis` placeholders (they are now correct by coincidence of the chosen handle, but verify every occurrence: README install URL, report template footer) and add docs-site links.
 3. **De-duplicate `_MIN_BOOTSTRAP_OBS`** — `evaluate.py` imports the threshold from `skepsis.core.bootstrap` instead of redeclaring it.
 4. **`chosen=` without `params`** — emit a `SkepsisWarning` that the argument is ignored, instead of silently discarding it.
-5. **Report polish** — "1 trial(s)" grammar fixed properly (singular/plural); infinite stability score renders as "∞ (isolated spike)" instead of `inf`; both in the summary table and any figure caption.
+5. **Report polish** — "1 trial(s)" grammar fixed properly (singular/plural); infinite stability score renders as "∞ (isolated spike)" instead of `inf` in ALL user-visible stability text: the report summary table, any figure caption, `Result.summary()`, and the verdict reason strings (`verdict.py`'s formatter currently produces "stability score inf > 2.0"). One shared formatting helper, not per-site fixes.
 6. **Autocorrelation warning** — when the Politis-White block length (already computed in the bootstrap step) exceeds a documented threshold, warn that heavy autocorrelation strains PSR's assumptions. The threshold is a documented module-level constant in `evaluate.py` (`_AUTOCORR_WARN_BLOCK_LENGTH = 10.0`), not a new `evaluate()` parameter (YAGNI: overriding it is editing one constant, and the warning is informational).
 7. **`moments.py` citation** — add Sharpe (1994), "The Sharpe Ratio", Journal of Portfolio Management, to the module docstring.
 8. **DSR docs note** — the docs explainer (3.4) states explicitly that skepsis uses the raw trial count N (conservative: more deflation), not the paper's effective-trials clustering correction, and why.
@@ -52,7 +52,8 @@ The existing `docs/superpowers/` planning artifacts are excluded from the built 
 `notebooks/deflating-the-golden-cross.ipynb`:
 
 1. Load committed daily BTC-USD closes from `notebooks/data/btc_usd_daily.csv` (~11 years). Provenance: fetched once by `notebooks/data/fetch_btc.py` from a public exchange API; the script, source, and fetch date are committed alongside the CSV. The notebook itself needs no network.
-2. Sweep the fast/slow MA window grid — fast ∈ {5, 10, 15, 20, 25, 30, 40, 50}, slow ∈ {20, 50, 100, 150, 200}, keeping pairs with fast < slow (36 trials) — long-when-fast-above-slow, daily rebalance, no costs (deliberately: the point is that even cost-free it dies).
+2. Sweep the fast/slow MA window grid — fast ∈ {5, 10, 15, 20, 25, 30, 40, 50}, slow ∈ {20, 50, 100, 150, 200}, keeping pairs with fast < slow (34 trials: 3 for slow=20, 7 for slow=50, 8 each for 100/150/200) — long-when-fast-above-slow, daily rebalance, no costs (deliberately: the point is that even cost-free it dies).
+   **Signal timing (no look-ahead):** the position held on day t is computed from closes up to and including t−1 — i.e., `position = (fast_ma > slow_ma).shift(1)` and `strategy_return_t = position_t × btc_return_t`. Warm-up: drop the first `max(slow windows) = 200` rows from EVERY trial so all 34 return series share one aligned, rectangular date index. The notebook states this explicitly — a look-ahead bug in the signature demo would be fatal to credibility.
 3. Show the seduction: best combo's in-sample equity curve and headline Sharpe.
 4. The turn: feed the full sweep to `skepsis.evaluate(returns, trials=..., params=...)`; walk through DSR, PBO, sensitivity map, verdict.
 5. Save the HTML report; capture the README screenshot from it.
@@ -62,7 +63,7 @@ CI executes the notebook end-to-end (nbconvert/jupyter execute via a dev depende
 ### 3.6 PyPI v0.1.0
 
 - Version bump `0.1.0.dev0` → `0.1.0`; `CHANGELOG.md` with an honest v0.1.0 entry (including the bootstrap seed-stream note).
-- `release.yml` workflow: on published GitHub release / pushed `v*` tag → build with `uv build` → publish via PyPI trusted publishing (OIDC, no API token).
+- `release.yml` workflow: triggered by **published GitHub release only** (a single authoritative trigger — a tag-push trigger alongside it could attempt to upload the same immutable version twice). The workflow validates that the release tag equals `v<package version>` from `pyproject.toml` and fails loudly on mismatch, then builds with `uv build` and publishes via PyPI trusted publishing (OIDC, no API token).
 - **Manual step (owner only):** register the trusted publisher on pypi.org (project `skepsis`, owner `abhinay`, repo `skepsis`, workflow `release.yml`). The plan includes exact instructions.
 - README gets install-from-PyPI plus CI and PyPI badges.
 
