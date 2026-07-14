@@ -32,3 +32,11 @@ jobs:
       - run: >
           uv run --group demo jupyter nbconvert --to notebook --execute
           --stdout notebooks/deflating-the-golden-cross.ipynb > /dev/null
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --group docs
+      - run: uv run --group docs mkdocs build --strict

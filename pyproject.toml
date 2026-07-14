@@ -43,6 +43,10 @@ demo = [
     "jupytext>=1.16",
     "playwright>=1.45",
 ]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.25",
+]
 
 [build-system]
 requires = ["hatchling"]
