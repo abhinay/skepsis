@@ -56,7 +56,6 @@ target-version = "py311"
 select = ["E", "F", "I", "UP", "B", "NPY"]
 
 [tool.mypy]
-python_version = "3.11"
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
