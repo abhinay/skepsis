@@ -39,6 +39,7 @@ def test_full_report_renders_and_is_self_contained(full_result, tmp_path) -> Non
     assert "Parameter sensitivity" in html
     assert "∞ (isolated spike)" in html  # fixture's stability is inf
     assert "9 trials" in html
+    assert "trial(s)" not in html  # every trial count goes through count_trials
 
 
 def test_minimal_report_shows_skipped_reasons(minimal_result, tmp_path) -> None:

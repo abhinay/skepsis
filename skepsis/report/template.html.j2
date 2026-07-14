@@ -61,7 +61,7 @@
     <h2>Deflated Sharpe</h2>
     <p>Observed periodic Sharpe {{ "%.4f" | format(psr.sharpe_periodic) }} against an
     expected max of {{ "%.4f" | format(dsr.benchmark_sr) }} from
-    {{ dsr.n_trials }} trial(s) (skew {{ "%.2f" | format(psr.skewness) }},
+    {{ n_trials_text }} (skew {{ "%.2f" | format(psr.skewness) }},
     kurtosis {{ "%.2f" | format(psr.kurtosis) }}).</p>
   </section>
 
