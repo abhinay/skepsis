@@ -40,8 +40,10 @@ diagnostics could not run and why.
 | Stationary block bootstrap | What does the Sharpe/drawdown distribution look like under resampling that preserves autocorrelation — and does a no-skill null explain it? | Politis & Romano (1994); Politis & White (2004) |
 | Parameter sensitivity | Is the chosen configuration a plateau (robust) or an isolated spike (fitted to noise)? | — |
 
-Every implementation is verified against reference values in
-[`tests/golden/`](tests/golden/) — the numbers, not just the shapes.
+The implementations are verified against reference values in
+[`tests/golden/`](tests/golden/) — including reproducing the published
+numerical example of the Deflated Sharpe Ratio paper to all four printed
+decimals ([`test_dsr_paper_example.py`](tests/golden/test_dsr_paper_example.py)).
 
 ## What skepsis is not
 
