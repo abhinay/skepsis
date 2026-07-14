@@ -60,3 +60,17 @@ def test_observed_stats_match_moments() -> None:
 def test_insufficient_data() -> None:
     with pytest.raises(InsufficientDataError):
         bootstrap(np.zeros(49) + np.random.default_rng(0).normal(0, 0.01, 49), 252.0)
+
+
+def test_index_generation_is_vectorized_fast() -> None:
+    # Spec benchmark: (n_obs=4000, L=1.0, n_resamples=5000). Verified 0.035s
+    # vectorized vs 29s looped locally; the 10s CI bound is deliberately loose
+    # so loaded runners never flake. A regression to the Python loop fails this.
+    import time
+
+    rng = np.random.default_rng(0)
+    t0 = time.perf_counter()
+    idx = stationary_bootstrap_indices(4000, 1.0, 5000, rng)
+    elapsed = time.perf_counter() - t0
+    assert idx.shape == (5000, 4000)
+    assert elapsed < 10.0

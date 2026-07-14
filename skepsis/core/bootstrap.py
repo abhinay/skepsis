@@ -60,19 +60,28 @@ def politis_white_block_length(x: np.ndarray) -> float:
 def stationary_bootstrap_indices(
     n_obs: int, mean_block_length: float, n_resamples: int, rng: np.random.Generator
 ) -> np.ndarray:
-    """(n_resamples, n_obs) index matrix: geometric block lengths, circular wrap."""
+    """(n_resamples, n_obs) index matrix: geometric block lengths, circular wrap.
+
+    Vectorized formulation: each position independently starts a new block with
+    probability p = 1/mean_block_length (this IS the stationary bootstrap of
+    Politis & Romano — geometric block lengths emerge from the per-position
+    Bernoulli trials); block starts are uniform on [0, n_obs); within a block,
+    indices continue circularly from the block's start.
+    """
     if mean_block_length < 1.0:
         raise InvalidInputError(f"mean_block_length must be >= 1, got {mean_block_length}")
+    if mean_block_length == 1.0:
+        # every position is its own block: plain iid resampling
+        return rng.integers(0, n_obs, size=(n_resamples, n_obs), dtype=np.int64)
     p = 1.0 / mean_block_length
-    idx = np.empty((n_resamples, n_obs), dtype=np.int64)
-    for r in range(n_resamples):
-        pos = 0
-        while pos < n_obs:
-            start = int(rng.integers(0, n_obs))
-            length = min(int(rng.geometric(p)), n_obs - pos)
-            idx[r, pos : pos + length] = (start + np.arange(length)) % n_obs
-            pos += length
-    return idx
+    new_block = rng.random((n_resamples, n_obs)) < p
+    new_block[:, 0] = True
+    starts = rng.integers(0, n_obs, size=(n_resamples, n_obs), dtype=np.int64)
+    pos = np.arange(n_obs, dtype=np.int64)
+    start_pos = np.maximum.accumulate(np.where(new_block, pos, 0), axis=1)
+    starts_at_block = np.take_along_axis(starts, start_pos, axis=1)
+    out: np.ndarray = (starts_at_block + (pos - start_pos)) % n_obs
+    return out
 
 
 @dataclass(frozen=True)
