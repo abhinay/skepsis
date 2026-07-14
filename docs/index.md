@@ -22,12 +22,12 @@ result.save_html("skepsis_report.html")
 ```
 
 Start with the demo: [Deflating the Golden Cross](https://github.com/abhinay/skepsis/blob/main/notebooks/deflating-the-golden-cross.ipynb)
-— a Sharpe-1.46, 650× backtest on 11 years of BTC, and what's left of it
+— a Sharpe-1.46, 651× backtest on 11 years of BTC, and what's left of it
 once you account for the 34 variants tried (spoiler: a DSR of 0.35).
 
 skepsis is **not a backtester**. It sits downstream of whatever you use to
 generate returns, and it never silently repairs bad input: NaNs are
 rejected, strained assumptions are warned about, skipped diagnostics say
-why. Every implementation is verified against published paper values —
-including the DSR paper's own numerical example, reproduced to all four
-printed decimals.
+why. The implementations are verified against reference values in the
+golden test suite — including reproducing the DSR paper's own numerical
+example to all four printed decimals.

@@ -15,7 +15,7 @@ honestly on 11 years of Bitcoin data, and gets a seductive Sharpe 1.46 /
 holding? 33 of 34 parameter combinations don't, and the survivor's Deflated
 Sharpe is 0.35. The edge was beta in a costume.
 
-Implementations are verified against the published papers (the DSR paper's
+Implementations are verified against reference golden values (the DSR paper's
 example reproduces to all four printed decimals). Apache-2.0.
 
 Repo: https://github.com/abhinay/skepsis

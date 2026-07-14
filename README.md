@@ -6,7 +6,7 @@
 [![PyPI](https://img.shields.io/pypi/v/skepsis)](https://pypi.org/project/skepsis/)
 [![docs](https://img.shields.io/badge/docs-abhinay.github.io%2Fskepsis-blue)](https://abhinay.github.io/skepsis)
 
-![skepsis report](docs/assets/report.png)
+![skepsis report](https://raw.githubusercontent.com/abhinay/skepsis/main/docs/assets/report.png)
 
 skepsis takes the returns of a backtested strategy — and, ideally, the returns
 of **every variant you tried along the way** — and produces statistical
@@ -35,7 +35,7 @@ result.save_html("skepsis_report.html")
 More inputs unlock more diagnostics; the report states plainly which
 diagnostics could not run and why.
 
-Docs: <https://abhinay.github.io/skepsis> · Demo: [Deflating the Golden Cross](notebooks/deflating-the-golden-cross.ipynb)
+Docs: <https://abhinay.github.io/skepsis> · Demo: [Deflating the Golden Cross](https://github.com/abhinay/skepsis/blob/main/notebooks/deflating-the-golden-cross.ipynb)
 
 ## The diagnostics
 
@@ -47,9 +47,9 @@ Docs: <https://abhinay.github.io/skepsis> · Demo: [Deflating the Golden Cross](
 | Parameter sensitivity | Is the chosen configuration a plateau (robust) or an isolated spike (fitted to noise)? | — |
 
 The implementations are verified against reference values in
-[`tests/golden/`](tests/golden/) — including reproducing the published
+[`tests/golden/`](https://github.com/abhinay/skepsis/blob/main/tests/golden/) — including reproducing the published
 numerical example of the Deflated Sharpe Ratio paper to all four printed
-decimals ([`test_dsr_paper_example.py`](tests/golden/test_dsr_paper_example.py)).
+decimals ([`test_dsr_paper_example.py`](https://github.com/abhinay/skepsis/blob/main/tests/golden/test_dsr_paper_example.py)).
 
 ## What skepsis is not
 

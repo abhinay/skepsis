@@ -67,9 +67,10 @@ the kind of overclaiming this project exists to push back against — read
 the individual diagnostics and their reasons, always.
 
 **One fail overrides everything, by design, which can feel harsh.** A
-result with an excellent DSR, an excellent bootstrap p-value, and PBO,
-sensitivity 2.01 marginally over the fail line, gets the same
-`LIKELY_OVERFIT` label as a result that fails on every axis. That's a
+result with an excellent DSR, an excellent bootstrap p-value, and an
+excellent PBO, but a sensitivity score of 2.01 — marginally over the fail
+line — gets the same `LIKELY_OVERFIT` label as a result that fails on every
+axis. That's a
 deliberate conservative choice (a backtest with even one strong overfitting
 signal deserves the loudest label), not evidence that all `LIKELY_OVERFIT`
 results are equally bad — read the `reasons` tuple to see which rule

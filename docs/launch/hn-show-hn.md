@@ -17,7 +17,7 @@ holding, 33 of 34 variants lose, and the best survivor's Deflated Sharpe
 Ratio is 0.35 — worse than a coin flip. The Sharpe was beta wearing a
 costume.
 
-The implementations are verified against the published papers, including
+The implementations are verified against reference golden values, including
 reproducing the DSR paper's numerical example to all four printed decimals.
 Apache-2.0. Not a backtester — it sits downstream of whatever you use.
 

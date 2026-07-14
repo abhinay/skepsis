@@ -12,9 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate tag matches package version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
-          TAG="${{ github.event.release.tag_name }}"
           if [ "$TAG" != "v$VERSION" ]; then
             echo "release tag $TAG does not match pyproject version v$VERSION" >&2
             exit 1
