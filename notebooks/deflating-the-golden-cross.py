@@ -61,7 +61,7 @@ assert abs(sharpes[best] - 1.464) < 0.01 and abs(bh_sharpe - 1.064) < 0.01
 # %% [markdown]
 # ## Act 1 — the pitch
 #
-# Sharpe **1.46**. A **650×** total return. This is the chart that sells the
+# Sharpe **1.46**. A **651×** total return. This is the chart that sells the
 # course. Let's hand the *entire sweep* — winner plus the 33 variants nobody
 # publishes — to skepsis.
 

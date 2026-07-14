@@ -15,9 +15,10 @@ Receipts, because this sub is rightly hostile to claims:
 - Golden tests reproduce the DSR paper's numerical example to all four
   printed decimals (SR0 0.1132, DSR 0.9004, and both secondary claims).
 - The demo sweeps 34 MA-crossover combos on 11y of daily BTC with shift(1)
-  timing and no costs: best combo Sharpe 1.46 / 650x. Against buy-and-hold,
-  33/34 variants lose and the winner's DSR is 0.35. PBO says the parameter
-  choice flips OOS rank on ~45% of CSCV splits.
+  timing and no costs: best combo Sharpe 1.46 / 651x. On the raw sweep, PBO
+  already flags the parameter choice as near-noise (the in-sample winner
+  lands bottom-half OOS on ~45% of CSCV splits). Against buy-and-hold,
+  33/34 variants lose and the winner's excess-return DSR is 0.35.
 - Everything fails loud: NaNs rejected, skipped diagnostics say why,
   strained assumptions warn (e.g., heavy autocorrelation vs PSR).
 

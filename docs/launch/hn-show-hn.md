@@ -12,7 +12,7 @@ produces a single-file HTML report with a verdict.
 The demo notebook builds the most-published strategy on the internet — the
 moving-average crossover, on 11 years of daily BTC — sweeps all 34
 parameter combinations honestly (no look-ahead, no costs), and finds a
-Sharpe 1.46, 650x backtest. Then it deflates it: measured against simply
+Sharpe 1.46, 651x backtest. Then it deflates it: measured against simply
 holding, 33 of 34 variants lose, and the best survivor's Deflated Sharpe
 Ratio is 0.35 — worse than a coin flip. The Sharpe was beta wearing a
 costume.

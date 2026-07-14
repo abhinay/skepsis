@@ -11,7 +11,7 @@ one-file HTML report.
 My favorite result from building it: the demo takes the most-published
 strategy on the internet (the moving-average "golden cross"), runs it
 honestly on 11 years of Bitcoin data, and gets a seductive Sharpe 1.46 /
-650x backtest. Then it asks the fair question — does the timing beat just
+651x backtest. Then it asks the fair question — does the timing beat just
 holding? 33 of 34 parameter combinations don't, and the survivor's Deflated
 Sharpe is 0.35. The edge was beta in a costume.
 
