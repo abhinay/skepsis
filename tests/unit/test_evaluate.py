@@ -97,7 +97,7 @@ def test_misalignment_raises() -> None:
 
 def test_chosen_without_params_warns() -> None:
     rng = np.random.default_rng(2)
-    trials = rng.normal(0.001, 0.01, size=(120, 3))
+    trials = rng.normal(0.001, 0.01, size=(128, 3))
     with pytest.warns(SkepsisWarning, match="ignored"):
         res = skepsis.evaluate(trials[:, 0].copy(), trials=trials, chosen=0,
                                n_resamples=100)
@@ -111,8 +111,9 @@ def test_heavy_autocorrelation_warns() -> None:
     r[0] = 0.001
     for t in range(1, 600):
         r[t] = 0.001 + 0.85 * (r[t - 1] - 0.001) + eps[t]
-    with pytest.warns(SkepsisWarning, match="autocorrelated"):
+    with pytest.warns(SkepsisWarning) as record:
         res = skepsis.evaluate(r, n_resamples=100)
+    assert any("autocorrelated" in str(w.message) for w in record)
     assert any("autocorrelated" in w for w in res.warnings)
 
 
