@@ -151,3 +151,26 @@ def test_bootstrap_periods_validation() -> None:
     for bad in (0.0, -1.0, float("inf"), float("nan")):
         with pytest.raises(InvalidInputError):
             bootstrap(r, bad, n_resamples=20)
+
+
+def test_zero_mean_constant_draws_tie_zero_observed_sharpe() -> None:
+    # 48 zeros plus -0.1/+0.1: observed Sharpe is exactly 0; constant-zero
+    # null draws are zero-return/zero-risk and must TIE (0.0 >= 0.0), not be
+    # silently counted as non-exceedances via NaN.
+    r = np.concatenate([np.zeros(48), [-0.1], [0.1]])
+    with pytest.warns(SkepsisWarning, match="constant"):
+        res = bootstrap(r, 252.0, n_resamples=2000, mean_block_length=1.0, seed=0)
+    assert res.sharpe_obs == 0.0
+    assert res.n_degenerate_resamples > 0
+    assert res.p_value_no_skill > 0.6  # buggy NaN handling gave ~0.52
+    assert np.isfinite(res.sharpe_distribution).all()
+    # Pin the actual value (computed post-fix, seed=0): 0.6537. Wide margin
+    # since this is a discrete count-based statistic sensitive to RNG stream.
+    assert res.p_value_no_skill == pytest.approx(0.6536731634182908, abs=0.02)
+
+
+def test_all_degenerate_resamples_raise() -> None:
+    # single resample of a 49-zeros series is constant -> no CI is formable
+    r = np.concatenate([np.zeros(49), [0.1]])
+    with pytest.raises(InvalidInputError, match="constant"):
+        bootstrap(r, 252.0, n_resamples=1, mean_block_length=1.0, seed=0)

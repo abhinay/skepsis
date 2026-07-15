@@ -68,12 +68,20 @@ against pure noise, on its own terms.
 
 A resample that happens to be exactly constant (every drawn period identical)
 has an undefined ordinary Sharpe ratio, so skepsis scores it
-\(\operatorname{sign}(\text{mean})\cdot\infty\) instead of dropping it: those
-draws still count in the \(p\)-value's exceedance total (on the statistically
-correct side — a demeaned, constant-positive draw counts as evidence for the
-null), keeping the \((1 + \#\{\cdot\}) / (n_{\text{resamples}} + 1)\)
+\(\operatorname{sign}(\text{mean})\cdot\infty\) instead of dropping it —
+except when that constant resample's mean is exactly zero (a zero-return,
+zero-risk draw), which scores exactly \(0.0\) so it correctly *ties* a zero
+observed Sharpe (\(0.0 \ge 0.0\)) rather than vanishing as
+\(\operatorname{sign}(0)\cdot\infty = \text{NaN}\), which would fail every
+comparison and silently bias the p-value downward. These draws still count
+in the \(p\)-value's exceedance total (on the statistically correct side —
+a demeaned, constant-positive or exactly-tying draw counts as evidence for
+the null), keeping the \((1 + \#\{\cdot\}) / (n_{\text{resamples}} + 1)\)
 denominator exact, while being excluded from the reported confidence
-intervals (an infinite Sharpe can't populate a quantile).
+intervals (neither an infinite nor a degenerate zero Sharpe can populate a
+quantile the way a genuine resample can). If every resample in a bootstrap
+run is degenerate, skepsis raises rather than returning confidence
+intervals it cannot actually form.
 
 ## When it lies
 

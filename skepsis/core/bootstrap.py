@@ -8,9 +8,13 @@ References:
 
 The no-skill p-value resamples the DEMEANED series with the same index matrix
 and reports (1 + #{SR_null >= SR_obs}) / (n_resamples + 1). Degenerate
-(exactly-constant) resamples score a signed-infinite Sharpe and count toward
-that exceedance total; they are excluded from the finite-only CI/report
-distributions. See BootstrapResult for the exact convention.
+(exactly-constant) resamples score a signed-infinite Sharpe -- except an
+exactly-zero-mean constant draw, which scores exactly 0.0 and so correctly
+TIES a zero observed Sharpe -- and count toward that exceedance total; they
+are excluded from the CI/report distributions via the exact constancy mask
+(not finiteness, since a zero-mean constant draw is finite). A bootstrap
+whose resamples are ALL degenerate raises rather than attempting to form a
+CI. See BootstrapResult for the exact convention.
 """
 
 import math
@@ -135,13 +139,18 @@ class BootstrapResult:
     """Bootstrap distributions and the no-skill p-value. Sharpe values are annualized.
 
     Degenerate (exactly constant) resamples score a signed-infinite Sharpe
-    (`sign(mean) * inf`; an exactly-zero-mean constant resample yields nan via
-    `0 * inf`). Those rows count toward `p_value_no_skill` on the null side
-    (`+inf >= sharpe_obs` is an exceedance; `-inf`/nan are not), keeping the
-    `(1 + #exceedances) / (n_resamples + 1)` denominator exact. They are
-    excluded from `sharpe_ci` and `sharpe_distribution` (finite-only —
-    inf would break histograms/quantiles); `n_degenerate_resamples` reports
-    how many raw-side resamples were degenerate.
+    (`sign(mean) * inf`), EXCEPT an exactly-zero-mean constant resample
+    (zero return, zero risk), which scores exactly `0.0` so it correctly
+    TIES a zero observed Sharpe (`0.0 >= 0.0` is True) instead of vanishing
+    as `sign(0) * inf == nan`. Those rows count toward `p_value_no_skill` on
+    the null side (`+inf` and an exact-tying `0.0` are exceedances; `-inf`
+    is not), keeping the `(1 + #exceedances) / (n_resamples + 1)`
+    denominator exact. They are excluded from `sharpe_ci` and
+    `sharpe_distribution` via the exact constancy mask -- not finiteness,
+    since a zero-mean constant row is finite (`0.0`) but still degenerate;
+    `n_degenerate_resamples` reports how many raw-side resamples were
+    degenerate. If every raw-side resample is degenerate, `bootstrap()`
+    raises `InvalidInputError` instead of returning a result with no CI.
     """
 
     sharpe_obs: float
@@ -156,18 +165,26 @@ class BootstrapResult:
     drawdown_distribution: np.ndarray
 
 
-def _sharpe_rows(resamples: np.ndarray, periods: float) -> np.ndarray:
-    """Annualized Sharpe per row. Exactly-constant rows (never `std == 0`,
-    which float64 reductions can miss by ~1e-18) get `sign(mean) * inf` so
-    they land on the statistically correct side of any exceedance count."""
+def _sharpe_rows(resamples: np.ndarray, periods: float) -> tuple[np.ndarray, np.ndarray]:
+    """Annualized Sharpe per row, and a boolean mask of exactly-constant rows.
+
+    Constancy is checked by exact equality (never `std == 0`, which float64
+    reductions can miss by ~1e-18). Exactly-constant rows score
+    `sign(mean) * inf` so they land on the statistically correct side of any
+    exceedance count -- EXCEPT rows whose mean is exactly `0.0`, which score
+    exactly `0.0`: a zero-return, zero-risk draw correctly TIES a zero
+    observed Sharpe (`0.0 >= 0.0` is True), rather than vanishing as
+    `sign(0) * inf == nan`, which fails every `>=` comparison and biases the
+    p-value downward.
+    """
     constant = np.all(resamples == resamples[:, :1], axis=1)
     mean = resamples.mean(axis=1)
     sd = resamples.std(axis=1, ddof=1)
     with np.errstate(divide="ignore", invalid="ignore"):
         non_constant = mean / sd * math.sqrt(periods)
-        degenerate = np.sign(mean) * np.inf
+        degenerate = np.where(mean == 0.0, 0.0, np.sign(mean) * np.inf)
     out: np.ndarray = np.where(constant, degenerate, non_constant)
-    return out
+    return out, constant
 
 
 def _drawdown_rows(resamples: np.ndarray) -> np.ndarray:
@@ -206,34 +223,46 @@ def bootstrap(
     centered = returns - returns.mean()
 
     sharpe_chunks: list[np.ndarray] = []
+    raw_mask_chunks: list[np.ndarray] = []
     dd_chunks: list[np.ndarray] = []
     null_chunks: list[np.ndarray] = []
     for idx_chunk in _iter_index_chunks(n_obs, mean_block_length, n_resamples, rng):
-        sharpe_chunks.append(_sharpe_rows(returns[idx_chunk], periods))
+        raw_values, raw_mask = _sharpe_rows(returns[idx_chunk], periods)
+        sharpe_chunks.append(raw_values)
+        raw_mask_chunks.append(raw_mask)
         dd_chunks.append(_drawdown_rows(returns[idx_chunk]))
-        null_chunks.append(_sharpe_rows(centered[idx_chunk], periods))
+        null_values, _null_mask = _sharpe_rows(centered[idx_chunk], periods)
+        null_chunks.append(null_values)
 
     sharpe_raw = np.concatenate(sharpe_chunks)
+    raw_mask = np.concatenate(raw_mask_chunks)
     dd_dist = np.concatenate(dd_chunks)
     null_dist = np.concatenate(null_chunks)
 
-    # Degenerate (exactly-constant) resamples score a signed-infinite Sharpe
-    # (see _sharpe_rows) rather than being dropped. They remain in null_dist
-    # for the p-value exceedance count below -- +inf counts, -inf/nan don't --
-    # so the (1 + #exceedances) / (n_resamples + 1) denominator stays exact
-    # AND degenerate draws land on the statistically correct side. They are
-    # excluded from the CI/report-facing sharpe_distribution (inf would break
-    # quantiles and histograms); n_degenerate_resamples surfaces the count.
-    n_degenerate = int(np.sum(~np.isfinite(sharpe_raw)))
+    # Degenerate (exactly-constant) resamples score a signed-infinite Sharpe,
+    # except an exactly-zero-mean constant draw which scores exactly 0.0 (see
+    # _sharpe_rows). Degeneracy accounting and CI exclusion use the exact
+    # constancy MASK, not finiteness -- a zero-mean constant row is finite
+    # (0.0) but still degenerate and must not populate the CI/report-facing
+    # sharpe_distribution. They remain in null_dist for the p-value
+    # exceedance count below (unchanged formula: +inf and an exact 0.0 tying
+    # a zero observed Sharpe both count; -inf never does), so the
+    # (1 + #exceedances) / (n_resamples + 1) denominator stays exact.
+    n_degenerate = int(raw_mask.sum())
+    if raw_mask.all():
+        raise InvalidInputError(
+            f"all {n_resamples} resamples were constant (zero variance); the series "
+            "is too close to constant to bootstrap confidence intervals"
+        )
     if n_degenerate > 0:
         warnings.warn(
             f"{n_degenerate} of {n_resamples} resamples were constant (zero variance); "
-            "they count toward the p-value as signed-infinite Sharpe and are excluded "
-            "from CI quantiles",
+            "they count toward the p-value as signed-infinite Sharpe (or 0.0 for an "
+            "exactly-zero-mean constant draw) and are excluded from CI quantiles",
             SkepsisWarning,
             stacklevel=2,
         )
-    sharpe_dist = sharpe_raw[np.isfinite(sharpe_raw)]
+    sharpe_dist = sharpe_raw[~raw_mask]
 
     p_value = float(1 + np.sum(null_dist >= sharpe_obs)) / (n_resamples + 1)
 

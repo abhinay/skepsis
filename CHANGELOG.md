@@ -25,4 +25,7 @@ First public release.
   floating-point reduction noise) and rejected or scored deterministically;
   degenerate bootstrap resamples count toward the no-skill p-value as
   signed-infinite Sharpe and are excluded from confidence intervals, with
-  their count reported.
+  their count reported. Exactly-zero-mean constant draws instead score a
+  Sharpe of 0.0, correctly tying a zero observed Sharpe rather than
+  vanishing as `sign(0) * inf == nan`; and a bootstrap whose resamples are
+  all degenerate now raises instead of crashing on an empty quantile.
