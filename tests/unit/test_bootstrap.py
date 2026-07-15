@@ -10,7 +10,7 @@ from skepsis.core.bootstrap import (
     politis_white_block_length,
     stationary_bootstrap_indices,
 )
-from skepsis.exceptions import InsufficientDataError, InvalidInputError
+from skepsis.exceptions import InsufficientDataError, InvalidInputError, SkepsisWarning
 
 
 def test_block_length_orders_iid_vs_persistent() -> None:
@@ -77,10 +77,10 @@ def test_index_generation_is_vectorized_fast() -> None:
 
 
 def test_bootstrap_drawdown_counts_initial_capital() -> None:
-    # a series that only loses: every resample's drawdown must be > 0
-    r = np.full(60, -0.01)
+    # strictly losing but non-constant series: every resample draws down from 1.0
+    r = np.tile([-0.01, -0.02], 30)
     res = bootstrap(r, 252.0, n_resamples=50, mean_block_length=2.0, seed=0)
-    assert res.drawdown_obs == pytest.approx(1 - 0.99**60)
+    assert res.drawdown_obs == pytest.approx(1 - (0.99 * 0.98) ** 30)
     assert res.drawdown_ci[0] > 0.0
 
 
@@ -116,3 +116,38 @@ def test_index_knob_validation() -> None:
         stationary_bootstrap_indices(100, float("nan"), 10, rng)
     with pytest.raises(InvalidInputError):
         stationary_bootstrap_indices(100, float("inf"), 10, rng)
+
+
+def test_constant_input_raises() -> None:
+    with pytest.raises(InvalidInputError, match="constant"):
+        bootstrap(np.full(60, -0.01), 252.0, n_resamples=20, mean_block_length=2.0)
+
+
+def test_degenerate_null_draws_count_as_exceedances() -> None:
+    # 49 zeros + one loss: many null resamples are constant-positive after
+    # demeaning -> +inf Sharpe -> exceedances. The buggy filter-and-keep-
+    # denominator behavior reported ~0.55 here; correct handling is ~0.9.
+    r = np.concatenate([np.zeros(49), [-0.1]])
+    with pytest.warns(SkepsisWarning, match="constant"):
+        res = bootstrap(r, 252.0, n_resamples=2000, mean_block_length=1.0, seed=0)
+    assert res.p_value_no_skill > 0.8
+    assert res.n_degenerate_resamples > 0
+    assert np.isfinite(res.sharpe_distribution).all()
+    # Pin the actual value (computed post-fix, seed=0): 0.9240. Wide margin
+    # since this is a discrete count-based statistic sensitive to RNG stream.
+    assert res.p_value_no_skill == pytest.approx(0.9240379810094953, abs=0.02)
+
+
+def test_integral_knob_validation() -> None:
+    rng = np.random.default_rng(0)
+    with pytest.raises(InvalidInputError):
+        stationary_bootstrap_indices(100, 5.0, 1.5, rng)  # type: ignore[arg-type]
+    with pytest.raises(InvalidInputError):
+        stationary_bootstrap_indices(True, 5.0, 10, rng)  # type: ignore[arg-type]
+
+
+def test_bootstrap_periods_validation() -> None:
+    r = np.random.default_rng(0).normal(0.001, 0.01, 100)
+    for bad in (0.0, -1.0, float("inf"), float("nan")):
+        with pytest.raises(InvalidInputError):
+            bootstrap(r, bad, n_resamples=20)

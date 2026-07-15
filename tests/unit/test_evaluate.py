@@ -126,6 +126,16 @@ def test_summary_formats_inf_stability() -> None:
     assert "9 trials" in res.summary()
 
 
+def test_constant_trial_column_warns_and_scores_neg_inf() -> None:
+    rng = np.random.default_rng(3)
+    trials = rng.normal(0.001, 0.01, size=(128, 3))
+    trials[:, 1] = 0.005  # float-constant column: std(ddof=1) is ~1e-18, not 0
+    r = trials[:, 0].copy()
+    with pytest.warns(SkepsisWarning, match="zero variance"):
+        res = skepsis.evaluate(r, trials=trials, n_resamples=100)
+    assert any("zero variance" in w for w in res.warnings)
+
+
 def test_invalid_pbo_blocks_raises_regardless_of_length() -> None:
     r = np.random.default_rng(0).normal(0, 0.01, 30)  # short: skip branch would swallow it
     trials = np.random.default_rng(1).normal(0, 0.01, (30, 3))

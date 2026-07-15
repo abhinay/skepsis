@@ -17,6 +17,7 @@ callback forces the materializing path.
 
 import itertools
 import math
+import operator
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -31,7 +32,13 @@ _MAX_BLOCKS = 24  # C(24,12) ~ 2.7M combinations; documented ceiling
 
 
 def validate_n_blocks(n_blocks: int) -> None:
-    """Raise InvalidInputError unless n_blocks is even and within [4, 24]."""
+    """Raise InvalidInputError unless n_blocks is an integer, even, and within [4, 24]."""
+    if isinstance(n_blocks, bool):
+        raise InvalidInputError(f"n_blocks must be an integer, got bool {n_blocks!r}")
+    try:
+        operator.index(n_blocks)
+    except TypeError:
+        raise InvalidInputError(f"n_blocks must be an integer, got {n_blocks!r}") from None
     if n_blocks % 2 != 0:
         raise InvalidInputError(f"n_blocks must be even, got {n_blocks}")
     if not _MIN_BLOCKS <= n_blocks <= _MAX_BLOCKS:
@@ -97,8 +104,18 @@ def cscv(
             t1 = s1[sel].sum(axis=0)
             t2 = s2[sel].sum(axis=0)
             var = (t2 - t1 * t1 / n) / (n - 1)
+            # A genuinely constant column should give var == 0 exactly, but
+            # var is computed here from accumulated block sums/sums-of-squares
+            # (t2 - t1^2/n), and that catastrophic-cancellation path can leave
+            # a tiny float64 residual (~1e-12 relative) instead of an exact
+            # zero -- `var > 0` would then treat a degenerate column as real.
+            # Compare against a margin scaled by t2/n (>= 0, the column's
+            # mean-square magnitude) instead: genuine return series have
+            # var / (mean square) >> 1e-12, so only truly degenerate columns
+            # (including the all-zero column, where t2/n == 0) are caught.
+            degenerate = var <= (t2 / n) * 1e-12
             with np.errstate(divide="ignore", invalid="ignore"):
-                out: np.ndarray = np.where(var > 0, (t1 / n) / np.sqrt(var), -np.inf)
+                out: np.ndarray = np.where(degenerate, -np.inf, (t1 / n) / np.sqrt(var))
             return out
 
         for i, combo in enumerate(combos):

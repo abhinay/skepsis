@@ -7,17 +7,22 @@ References:
   correction.
 
 The no-skill p-value resamples the DEMEANED series with the same index matrix
-and reports (1 + #{SR_null >= SR_obs}) / (n_resamples + 1).
+and reports (1 + #{SR_null >= SR_obs}) / (n_resamples + 1). Degenerate
+(exactly-constant) resamples score a signed-infinite Sharpe and count toward
+that exceedance total; they are excluded from the finite-only CI/report
+distributions. See BootstrapResult for the exact convention.
 """
 
 import math
+import operator
+import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 
 import numpy as np
 
 from skepsis.core.moments import annualized_sharpe, max_drawdown
-from skepsis.exceptions import InsufficientDataError, InvalidInputError
+from skepsis.exceptions import InsufficientDataError, InvalidInputError, SkepsisWarning
 
 MIN_OBS = 50
 
@@ -63,6 +68,13 @@ def politis_white_block_length(x: np.ndarray) -> float:
 
 
 def _validate_index_knobs(n_obs: int, mean_block_length: float, n_resamples: int) -> None:
+    for name, value in (("n_obs", n_obs), ("n_resamples", n_resamples)):
+        if isinstance(value, bool):
+            raise InvalidInputError(f"{name} must be an integer, got bool {value!r}")
+        try:
+            operator.index(value)
+        except TypeError:
+            raise InvalidInputError(f"{name} must be an integer, got {value!r}") from None
     if n_obs < 1:
         raise InvalidInputError(f"n_obs must be >= 1, got {n_obs}")
     if n_resamples < 1:
@@ -120,7 +132,17 @@ def stationary_bootstrap_indices(
 
 @dataclass(frozen=True)
 class BootstrapResult:
-    """Bootstrap distributions and the no-skill p-value. Sharpe values are annualized."""
+    """Bootstrap distributions and the no-skill p-value. Sharpe values are annualized.
+
+    Degenerate (exactly constant) resamples score a signed-infinite Sharpe
+    (`sign(mean) * inf`; an exactly-zero-mean constant resample yields nan via
+    `0 * inf`). Those rows count toward `p_value_no_skill` on the null side
+    (`+inf >= sharpe_obs` is an exceedance; `-inf`/nan are not), keeping the
+    `(1 + #exceedances) / (n_resamples + 1)` denominator exact. They are
+    excluded from `sharpe_ci` and `sharpe_distribution` (finite-only —
+    inf would break histograms/quantiles); `n_degenerate_resamples` reports
+    how many raw-side resamples were degenerate.
+    """
 
     sharpe_obs: float
     sharpe_ci: tuple[float, float]
@@ -129,16 +151,22 @@ class BootstrapResult:
     p_value_no_skill: float
     mean_block_length: float
     n_resamples: int
+    n_degenerate_resamples: int
     sharpe_distribution: np.ndarray
     drawdown_distribution: np.ndarray
 
 
 def _sharpe_rows(resamples: np.ndarray, periods: float) -> np.ndarray:
+    """Annualized Sharpe per row. Exactly-constant rows (never `std == 0`,
+    which float64 reductions can miss by ~1e-18) get `sign(mean) * inf` so
+    they land on the statistically correct side of any exceedance count."""
+    constant = np.all(resamples == resamples[:, :1], axis=1)
+    mean = resamples.mean(axis=1)
     sd = resamples.std(axis=1, ddof=1)
     with np.errstate(divide="ignore", invalid="ignore"):
-        out: np.ndarray = np.where(
-            sd > 0, resamples.mean(axis=1) / sd * math.sqrt(periods), np.nan
-        )
+        non_constant = mean / sd * math.sqrt(periods)
+        degenerate = np.sign(mean) * np.inf
+    out: np.ndarray = np.where(constant, degenerate, non_constant)
     return out
 
 
@@ -159,6 +187,8 @@ def bootstrap(
 ) -> BootstrapResult:
     """Stationary-bootstrap CIs for annualized Sharpe and max drawdown, plus
     a p-value against the no-skill (demeaned) null."""
+    if not math.isfinite(periods) or periods <= 0:
+        raise InvalidInputError(f"periods must be finite and > 0, got {periods}")
     if len(returns) < MIN_OBS:
         raise InsufficientDataError(
             f"bootstrap needs >= {MIN_OBS} observations, got {len(returns)}"
@@ -169,6 +199,9 @@ def bootstrap(
         mean_block_length = politis_white_block_length(returns)
     n_obs = len(returns)
     _validate_index_knobs(n_obs, mean_block_length, n_resamples)
+    # Fail fast on exactly-constant returns (before spending time resampling):
+    # sharpe() rejects them, which is also the observed-Sharpe value we need.
+    sharpe_obs = annualized_sharpe(returns, periods)
     rng = np.random.default_rng(seed)
     centered = returns - returns.mean()
 
@@ -180,24 +213,41 @@ def bootstrap(
         dd_chunks.append(_drawdown_rows(returns[idx_chunk]))
         null_chunks.append(_sharpe_rows(centered[idx_chunk], periods))
 
-    sharpe_dist = np.concatenate(sharpe_chunks)
-    sharpe_dist = sharpe_dist[np.isfinite(sharpe_dist)]
+    sharpe_raw = np.concatenate(sharpe_chunks)
     dd_dist = np.concatenate(dd_chunks)
-
-    sharpe_obs = annualized_sharpe(returns, periods)
     null_dist = np.concatenate(null_chunks)
-    null_dist = null_dist[np.isfinite(null_dist)]
+
+    # Degenerate (exactly-constant) resamples score a signed-infinite Sharpe
+    # (see _sharpe_rows) rather than being dropped. They remain in null_dist
+    # for the p-value exceedance count below -- +inf counts, -inf/nan don't --
+    # so the (1 + #exceedances) / (n_resamples + 1) denominator stays exact
+    # AND degenerate draws land on the statistically correct side. They are
+    # excluded from the CI/report-facing sharpe_distribution (inf would break
+    # quantiles and histograms); n_degenerate_resamples surfaces the count.
+    n_degenerate = int(np.sum(~np.isfinite(sharpe_raw)))
+    if n_degenerate > 0:
+        warnings.warn(
+            f"{n_degenerate} of {n_resamples} resamples were constant (zero variance); "
+            "they count toward the p-value as signed-infinite Sharpe and are excluded "
+            "from CI quantiles",
+            SkepsisWarning,
+            stacklevel=2,
+        )
+    sharpe_dist = sharpe_raw[np.isfinite(sharpe_raw)]
+
     p_value = float(1 + np.sum(null_dist >= sharpe_obs)) / (n_resamples + 1)
 
     lo, hi = (1.0 - ci) / 2.0, 1.0 - (1.0 - ci) / 2.0
+    dd_finite = dd_dist[np.isfinite(dd_dist)]  # always finite; belt-and-suspenders
     return BootstrapResult(
         sharpe_obs=sharpe_obs,
         sharpe_ci=(float(np.quantile(sharpe_dist, lo)), float(np.quantile(sharpe_dist, hi))),
         drawdown_obs=max_drawdown(returns),
-        drawdown_ci=(float(np.quantile(dd_dist, lo)), float(np.quantile(dd_dist, hi))),
+        drawdown_ci=(float(np.quantile(dd_finite, lo)), float(np.quantile(dd_finite, hi))),
         p_value_no_skill=p_value,
         mean_block_length=float(mean_block_length),
         n_resamples=n_resamples,
+        n_degenerate_resamples=n_degenerate,
         sharpe_distribution=sharpe_dist,
         drawdown_distribution=dd_dist,
     )

@@ -66,6 +66,15 @@ A small \(p\) means the observed Sharpe is higher than almost every
 draw from a mean-zero process with the same dependence structure — evidence
 against pure noise, on its own terms.
 
+A resample that happens to be exactly constant (every drawn period identical)
+has an undefined ordinary Sharpe ratio, so skepsis scores it
+\(\operatorname{sign}(\text{mean})\cdot\infty\) instead of dropping it: those
+draws still count in the \(p\)-value's exceedance total (on the statistically
+correct side — a demeaned, constant-positive draw counts as evidence for the
+null), keeping the \((1 + \#\{\cdot\}) / (n_{\text{resamples}} + 1)\)
+denominator exact, while being excluded from the reported confidence
+intervals (an infinite Sharpe can't populate a quantile).
+
 ## When it lies
 
 **Circular wrap stitches the end of history to the beginning.** Blocks that

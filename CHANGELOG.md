@@ -21,3 +21,8 @@ First public release.
   registers); bootstrap index generation is chunked to bound peak memory
   (~10x lower on default workloads), input knobs are validated, and seeded
   resample streams differ from earlier development builds.
+- Constant (zero-variance) inputs are detected exactly (immune to
+  floating-point reduction noise) and rejected or scored deterministically;
+  degenerate bootstrap resamples count toward the no-skill p-value as
+  signed-infinite Sharpe and are excluded from confidence intervals, with
+  their count reported.

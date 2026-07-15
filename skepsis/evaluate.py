@@ -116,6 +116,7 @@ class Result:
                 "drawdown_ci": list(self.bootstrap.drawdown_ci),
                 "p_value_no_skill": self.bootstrap.p_value_no_skill,
                 "mean_block_length": self.bootstrap.mean_block_length,
+                "n_degenerate_resamples": self.bootstrap.n_degenerate_resamples,
             }
         if self.sensitivity is not None:
             d["sensitivity"] = {
@@ -161,10 +162,15 @@ class Result:
 
 
 def _column_sharpes(trials: np.ndarray, warn: bool = True) -> np.ndarray:
-    """Periodic Sharpe per column; zero-variance columns score -inf (warned)."""
+    """Periodic Sharpe per column; zero-variance columns score -inf (warned).
+
+    Zero-variance is exact constancy (`np.all(m == m[0:1, :], axis=0)`), not
+    `std == 0`, since float64 reductions over a constant column can leave a
+    ~1e-18 residual rather than an exact zero.
+    """
+    zero = np.all(trials == trials[0:1, :], axis=0)
     sd = trials.std(axis=0, ddof=1)
     mean = trials.mean(axis=0)
-    zero = sd == 0.0
     if zero.any() and warn:
         _warnings.warn(
             f"{int(zero.sum())} trial column(s) have zero variance; they score -inf",

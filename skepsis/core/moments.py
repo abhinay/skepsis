@@ -45,17 +45,25 @@ def periods_per_year(freq: str | int | float) -> float:
 
 
 def sharpe(returns: np.ndarray) -> float:
-    """Periodic (non-annualized) Sharpe ratio: mean / std(ddof=1)."""
+    """Periodic (non-annualized) Sharpe ratio: mean / std(ddof=1).
+
+    Constancy is checked by exact equality (`np.all(x == x[0])`), never
+    `std == 0`: float64 reductions over a constant array can leave a residual
+    of ~1e-18 rather than an exact zero, which would let a genuinely
+    degenerate series slip past a `std == 0.0` check.
+    """
     if returns.size < 2:
         raise InsufficientDataError(f"sharpe needs >= 2 observations, got {returns.size}")
+    if bool(np.all(returns == returns[0])):
+        raise InvalidInputError("returns are constant (zero variance); Sharpe is undefined")
     sd = float(np.std(returns, ddof=1))
-    if sd == 0.0:
-        raise InvalidInputError("returns have zero variance; Sharpe is undefined")
     return float(np.mean(returns)) / sd
 
 
 def annualized_sharpe(returns: np.ndarray, periods: float) -> float:
     """Periodic Sharpe scaled by sqrt(periods per year)."""
+    if not math.isfinite(periods) or periods <= 0:
+        raise InvalidInputError(f"periods must be finite and > 0, got {periods}")
     return sharpe(returns) * float(np.sqrt(periods))
 
 

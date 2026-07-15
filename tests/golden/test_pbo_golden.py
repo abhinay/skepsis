@@ -67,3 +67,12 @@ def test_trim_warns() -> None:
     with pytest.warns(UserWarning, match="trimmed"):
         res = cscv(m, n_blocks=4)
     assert res.n_obs_used == 16
+
+
+def test_constant_column_ranks_last() -> None:
+    rng = np.random.default_rng(4)
+    m = rng.normal(0, 0.01, size=(64, 4))
+    m[:, 2] = 0.01  # exactly constant column
+    res = cscv(m, n_blocks=8)
+    assert np.isfinite(res.logits).all()
+    assert 0.0 <= res.value <= 1.0

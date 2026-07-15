@@ -65,3 +65,15 @@ def test_periods_per_year_rejects_non_finite() -> None:
     for bad in (float("inf"), float("-inf"), float("nan")):
         with pytest.raises(InvalidFrequencyError):
             moments.periods_per_year(bad)
+
+
+def test_sharpe_rejects_float_constant() -> None:
+    with pytest.raises(InvalidInputError, match="constant"):
+        moments.sharpe(np.full(60, 0.01))  # std(ddof=1) ~ 1.75e-18, not exactly 0
+
+
+def test_annualized_sharpe_rejects_bad_periods() -> None:
+    r = np.array([0.01, 0.02, 0.03])
+    for bad in (0.0, -1.0, float("inf"), float("nan")):
+        with pytest.raises(InvalidInputError):
+            moments.annualized_sharpe(r, bad)
