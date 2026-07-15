@@ -10,6 +10,8 @@ Reference: Sharpe, W. F. (1994), "The Sharpe Ratio", Journal of Portfolio
 Management 21(1), for the Sharpe ratio convention.
 """
 
+import math
+
 import numpy as np
 from scipy import stats
 
@@ -32,7 +34,12 @@ def periods_per_year(freq: str | int | float) -> float:
             raise InvalidFrequencyError(
                 f"freq must be one of {sorted(_FREQ_MAP)} or a positive number, got {freq!r}"
             ) from None
-    if isinstance(freq, (int, float)) and not isinstance(freq, bool) and freq > 0:
+    if (
+        isinstance(freq, (int, float))
+        and not isinstance(freq, bool)
+        and math.isfinite(freq)
+        and freq > 0
+    ):
         return float(freq)
     raise InvalidFrequencyError(f"freq must be a positive number, got {freq!r}")
 
@@ -68,6 +75,6 @@ def max_drawdown(returns: np.ndarray) -> float:
     Returns a positive fraction (0.25 == a 25% drawdown). 0.0 if equity never falls.
     """
     equity = np.cumprod(1.0 + returns)
-    peaks = np.maximum.accumulate(equity)
+    peaks = np.maximum(np.maximum.accumulate(equity), 1.0)
     drawdowns = 1.0 - equity / peaks
     return float(drawdowns.max(initial=0.0))

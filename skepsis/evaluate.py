@@ -12,7 +12,7 @@ from skepsis import __version__
 from skepsis.core import moments
 from skepsis.core.bootstrap import MIN_OBS as _MIN_BOOTSTRAP_OBS
 from skepsis.core.bootstrap import BootstrapResult, bootstrap
-from skepsis.core.pbo import PboResult, cscv
+from skepsis.core.pbo import PboResult, cscv, validate_n_blocks
 from skepsis.core.psr import (
     deflated_sharpe_ratio,
     expected_max_sharpe,
@@ -218,6 +218,7 @@ def evaluate(
 ) -> Result:
     """Run every overfitting diagnostic the provided inputs allow. See README."""
     periods = moments.periods_per_year(freq)
+    validate_n_blocks(pbo_blocks)
     r = coerce_returns(returns)
     trials_arr: np.ndarray | None = None
     labels: list[str] = []

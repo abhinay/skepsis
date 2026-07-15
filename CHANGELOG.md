@@ -17,3 +17,7 @@ First public release.
   seeded resample streams differ from pre-release development builds; no
   released version depended on them.
 - Demo: "Deflating the Golden Cross" notebook on 11 years of BTC-USD.
+- Drawdowns are measured against initial capital (a first-period loss now
+  registers); bootstrap index generation is chunked to bound peak memory
+  (~10x lower on default workloads), input knobs are validated, and seeded
+  resample streams differ from earlier development builds.

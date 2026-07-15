@@ -30,6 +30,16 @@ _MIN_BLOCKS = 4
 _MAX_BLOCKS = 24  # C(24,12) ~ 2.7M combinations; documented ceiling
 
 
+def validate_n_blocks(n_blocks: int) -> None:
+    """Raise InvalidInputError unless n_blocks is even and within [4, 24]."""
+    if n_blocks % 2 != 0:
+        raise InvalidInputError(f"n_blocks must be even, got {n_blocks}")
+    if not _MIN_BLOCKS <= n_blocks <= _MAX_BLOCKS:
+        raise InvalidInputError(
+            f"n_blocks must be between {_MIN_BLOCKS} and {_MAX_BLOCKS}, got {n_blocks}"
+        )
+
+
 @dataclass(frozen=True)
 class PboResult:
     """CSCV output. `value` is the PBO in [0, 1]; `logits` has one entry per combination."""
@@ -55,12 +65,7 @@ def cscv(
     """Run CSCV on a (T, N) matrix of per-period trial returns (columns = trials)."""
     if trials.ndim != 2 or trials.shape[1] < 2:
         raise InvalidInputError("trials must be a (T, N) matrix with N >= 2 columns")
-    if n_blocks % 2 != 0:
-        raise InvalidInputError(f"n_blocks must be even, got {n_blocks}")
-    if not _MIN_BLOCKS <= n_blocks <= _MAX_BLOCKS:
-        raise InvalidInputError(
-            f"n_blocks must be between {_MIN_BLOCKS} and {_MAX_BLOCKS}, got {n_blocks}"
-        )
+    validate_n_blocks(n_blocks)
     n_obs, n_trials = trials.shape
     if n_obs < 2 * n_blocks:
         raise InsufficientDataError(

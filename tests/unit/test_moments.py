@@ -50,3 +50,18 @@ def test_max_drawdown_hand_case() -> None:
 
 def test_max_drawdown_monotone_gains() -> None:
     assert moments.max_drawdown(np.array([0.01, 0.02, 0.03])) == 0.0
+
+
+def test_max_drawdown_counts_initial_capital() -> None:
+    assert moments.max_drawdown(np.array([-0.5, 0.0, 0.1])) == pytest.approx(0.5)
+    assert moments.max_drawdown(np.array([-0.2])) == pytest.approx(0.2)
+
+
+def test_max_drawdown_compounding_losses() -> None:
+    assert moments.max_drawdown(np.array([-0.5, -0.5])) == pytest.approx(0.75)
+
+
+def test_periods_per_year_rejects_non_finite() -> None:
+    for bad in (float("inf"), float("-inf"), float("nan")):
+        with pytest.raises(InvalidFrequencyError):
+            moments.periods_per_year(bad)

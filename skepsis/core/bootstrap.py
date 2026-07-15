@@ -11,6 +11,7 @@ and reports (1 + #{SR_null >= SR_obs}) / (n_resamples + 1).
 """
 
 import math
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import numpy as np
@@ -19,6 +20,10 @@ from skepsis.core.moments import annualized_sharpe, max_drawdown
 from skepsis.exceptions import InsufficientDataError, InvalidInputError
 
 MIN_OBS = 50
+
+_CHUNK_ROWS = 256
+"""Row-chunk size for index generation: bounds peak memory to a constant
+multiple of one chunk instead of the full (n_resamples, n_obs) matrix."""
 
 
 def politis_white_block_length(x: np.ndarray) -> float:
@@ -57,30 +62,59 @@ def politis_white_block_length(x: np.ndarray) -> float:
     return float(np.clip(b, 1.0, b_max))
 
 
+def _validate_index_knobs(n_obs: int, mean_block_length: float, n_resamples: int) -> None:
+    if n_obs < 1:
+        raise InvalidInputError(f"n_obs must be >= 1, got {n_obs}")
+    if n_resamples < 1:
+        raise InvalidInputError(f"n_resamples must be >= 1, got {n_resamples}")
+    if not math.isfinite(mean_block_length) or mean_block_length < 1.0:
+        raise InvalidInputError(f"mean_block_length must be >= 1, got {mean_block_length}")
+
+
+def _index_chunk(n_obs: int, p: float, rows: int, rng: np.random.Generator) -> np.ndarray:
+    new_block = rng.random((rows, n_obs)) < p
+    new_block[:, 0] = True
+    starts = rng.integers(0, n_obs, size=(rows, n_obs), dtype=np.int64)
+    pos = np.arange(n_obs, dtype=np.int64)
+    start_pos = np.maximum.accumulate(np.where(new_block, pos, 0), axis=1)
+    starts_at_block = np.take_along_axis(starts, start_pos, axis=1)
+    out: np.ndarray = (starts_at_block + (pos - start_pos)) % n_obs
+    return out
+
+
+def _iter_index_chunks(
+    n_obs: int, mean_block_length: float, n_resamples: int, rng: np.random.Generator
+) -> Iterator[np.ndarray]:
+    for lo in range(0, n_resamples, _CHUNK_ROWS):
+        rows = min(_CHUNK_ROWS, n_resamples - lo)
+        if mean_block_length == 1.0:
+            yield rng.integers(0, n_obs, size=(rows, n_obs), dtype=np.int64)
+        else:
+            yield _index_chunk(n_obs, 1.0 / mean_block_length, rows, rng)
+
+
 def stationary_bootstrap_indices(
     n_obs: int, mean_block_length: float, n_resamples: int, rng: np.random.Generator
 ) -> np.ndarray:
     """(n_resamples, n_obs) index matrix: geometric block lengths, circular wrap.
 
-    Vectorized formulation: each position independently starts a new block with
-    probability p = 1/mean_block_length (this IS the stationary bootstrap of
-    Politis & Romano — geometric block lengths emerge from the per-position
-    Bernoulli trials); block starts are uniform on [0, n_obs); within a block,
-    indices continue circularly from the block's start.
+    Stationary-bootstrap formulation: each position independently starts a new
+    block with probability p = 1/mean_block_length (this IS the stationary
+    bootstrap of Politis & Romano — geometric block lengths emerge from the
+    per-position Bernoulli trials); block starts are uniform on [0, n_obs);
+    within a block, indices continue circularly from the block's start.
+
+    Generated in row chunks of `_CHUNK_ROWS` to bound peak memory instead of
+    materializing several full (n_resamples, n_obs) temporaries at once; the
+    resulting seeded stream is otherwise identical in distribution but differs
+    bit-for-bit from earlier, fully-vectorized development builds.
     """
-    if mean_block_length < 1.0:
-        raise InvalidInputError(f"mean_block_length must be >= 1, got {mean_block_length}")
-    if mean_block_length == 1.0:
-        # every position is its own block: plain iid resampling
-        return rng.integers(0, n_obs, size=(n_resamples, n_obs), dtype=np.int64)
-    p = 1.0 / mean_block_length
-    new_block = rng.random((n_resamples, n_obs)) < p
-    new_block[:, 0] = True
-    starts = rng.integers(0, n_obs, size=(n_resamples, n_obs), dtype=np.int64)
-    pos = np.arange(n_obs, dtype=np.int64)
-    start_pos = np.maximum.accumulate(np.where(new_block, pos, 0), axis=1)
-    starts_at_block = np.take_along_axis(starts, start_pos, axis=1)
-    out: np.ndarray = (starts_at_block + (pos - start_pos)) % n_obs
+    _validate_index_knobs(n_obs, mean_block_length, n_resamples)
+    out = np.empty((n_resamples, n_obs), dtype=np.int64)
+    row = 0
+    for chunk in _iter_index_chunks(n_obs, mean_block_length, n_resamples, rng):
+        out[row : row + chunk.shape[0]] = chunk
+        row += chunk.shape[0]
     return out
 
 
@@ -110,7 +144,7 @@ def _sharpe_rows(resamples: np.ndarray, periods: float) -> np.ndarray:
 
 def _drawdown_rows(resamples: np.ndarray) -> np.ndarray:
     equity = np.cumprod(1.0 + resamples, axis=1)
-    peaks = np.maximum.accumulate(equity, axis=1)
+    peaks = np.maximum(np.maximum.accumulate(equity, axis=1), 1.0)
     out: np.ndarray = (1.0 - equity / peaks).max(axis=1)
     return out
 
@@ -133,16 +167,25 @@ def bootstrap(
         raise InvalidInputError(f"ci must be in (0.5, 1), got {ci}")
     if mean_block_length is None:
         mean_block_length = politis_white_block_length(returns)
+    n_obs = len(returns)
+    _validate_index_knobs(n_obs, mean_block_length, n_resamples)
     rng = np.random.default_rng(seed)
-    idx = stationary_bootstrap_indices(len(returns), mean_block_length, n_resamples, rng)
+    centered = returns - returns.mean()
 
-    resamples = returns[idx]
-    sharpe_dist = _sharpe_rows(resamples, periods)
+    sharpe_chunks: list[np.ndarray] = []
+    dd_chunks: list[np.ndarray] = []
+    null_chunks: list[np.ndarray] = []
+    for idx_chunk in _iter_index_chunks(n_obs, mean_block_length, n_resamples, rng):
+        sharpe_chunks.append(_sharpe_rows(returns[idx_chunk], periods))
+        dd_chunks.append(_drawdown_rows(returns[idx_chunk]))
+        null_chunks.append(_sharpe_rows(centered[idx_chunk], periods))
+
+    sharpe_dist = np.concatenate(sharpe_chunks)
     sharpe_dist = sharpe_dist[np.isfinite(sharpe_dist)]
-    dd_dist = _drawdown_rows(resamples)
+    dd_dist = np.concatenate(dd_chunks)
 
     sharpe_obs = annualized_sharpe(returns, periods)
-    null_dist = _sharpe_rows((returns - returns.mean())[idx], periods)
+    null_dist = np.concatenate(null_chunks)
     null_dist = null_dist[np.isfinite(null_dist)]
     p_value = float(1 + np.sum(null_dist >= sharpe_obs)) / (n_resamples + 1)
 

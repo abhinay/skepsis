@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 import skepsis
-from skepsis.exceptions import MisalignedTrialsError, SkepsisWarning
+from skepsis.exceptions import InvalidInputError, MisalignedTrialsError, SkepsisWarning
 
 
 def _sweep(seed: int = 0):
@@ -124,3 +124,12 @@ def test_summary_formats_inf_stability() -> None:
     assert "∞ (isolated spike)" in res.summary()
     assert "34 trials" not in res.summary()  # this sweep has 9 trials
     assert "9 trials" in res.summary()
+
+
+def test_invalid_pbo_blocks_raises_regardless_of_length() -> None:
+    r = np.random.default_rng(0).normal(0, 0.01, 30)  # short: skip branch would swallow it
+    trials = np.random.default_rng(1).normal(0, 0.01, (30, 3))
+    with pytest.raises(InvalidInputError, match="even"):
+        skepsis.evaluate(r, trials=trials, pbo_blocks=25, n_resamples=100)
+    with pytest.raises(InvalidInputError, match="between"):
+        skepsis.evaluate(r, trials=trials, pbo_blocks=26, n_resamples=100)

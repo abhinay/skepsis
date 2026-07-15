@@ -10,7 +10,7 @@ from skepsis.core.bootstrap import (
     politis_white_block_length,
     stationary_bootstrap_indices,
 )
-from skepsis.exceptions import InsufficientDataError
+from skepsis.exceptions import InsufficientDataError, InvalidInputError
 
 
 def test_block_length_orders_iid_vs_persistent() -> None:
@@ -74,3 +74,45 @@ def test_index_generation_is_vectorized_fast() -> None:
     elapsed = time.perf_counter() - t0
     assert idx.shape == (5000, 4000)
     assert elapsed < 10.0
+
+
+def test_bootstrap_drawdown_counts_initial_capital() -> None:
+    # a series that only loses: every resample's drawdown must be > 0
+    r = np.full(60, -0.01)
+    res = bootstrap(r, 252.0, n_resamples=50, mean_block_length=2.0, seed=0)
+    assert res.drawdown_obs == pytest.approx(1 - 0.99**60)
+    assert res.drawdown_ci[0] > 0.0
+
+
+def test_index_generation_memory_bounded() -> None:
+    # Full-matrix vectorization peaked ~917MB on this workload; chunked
+    # generation must stay under a generous 500MB (output itself is 160MB).
+    import tracemalloc
+
+    rng = np.random.default_rng(0)
+    tracemalloc.start()
+    idx = stationary_bootstrap_indices(4000, 5.0, 5000, rng)
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    assert idx.shape == (5000, 4000)
+    assert peak < 500 * 1024 * 1024
+
+
+def test_chunk_boundary_determinism() -> None:
+    # 300 resamples crosses the 256-row chunk boundary
+    a = stationary_bootstrap_indices(50, 3.0, 300, np.random.default_rng(9))
+    b = stationary_bootstrap_indices(50, 3.0, 300, np.random.default_rng(9))
+    np.testing.assert_array_equal(a, b)
+    assert a.shape == (300, 50)
+
+
+def test_index_knob_validation() -> None:
+    rng = np.random.default_rng(0)
+    with pytest.raises(InvalidInputError):
+        stationary_bootstrap_indices(100, 5.0, 0, rng)
+    with pytest.raises(InvalidInputError):
+        stationary_bootstrap_indices(0, 5.0, 10, rng)
+    with pytest.raises(InvalidInputError):
+        stationary_bootstrap_indices(100, float("nan"), 10, rng)
+    with pytest.raises(InvalidInputError):
+        stationary_bootstrap_indices(100, float("inf"), 10, rng)
