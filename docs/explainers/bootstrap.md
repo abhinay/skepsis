@@ -109,7 +109,7 @@ In the "Deflating the Golden Cross" demo, the bootstrap runs with 2,000
 resamples on both the raw and excess-return versions of the best trial.
 
 **Act 1 — raw returns.** The no-skill p-value is **0.0005** with a Sharpe
-95% CI of **[0.85, 2.13]** — a resounding rejection of the zero-mean null.
+95% CI of **[0.85, 2.07]** — a resounding rejection of the zero-mean null.
 But the auto-selected mean block length comes out to 11 periods, above
 skepsis's autocorrelation-warning threshold, and correctly so: an
 11-day-average dependence structure in daily BTC returns during a sustained
@@ -119,8 +119,8 @@ easily clears the no-skill bar because it's long an asset that mostly went
 up, not because the entry/exit timing adds value.
 
 **Act 2 — excess over buy-and-hold.** Against the harder, fairer null — beat
-holding, not beat doing nothing — the no-skill p-value rises to **0.372**
-with a CI of **[-0.49, 0.63]**, spanning zero. The bootstrap cannot reject
+holding, not beat doing nothing — the no-skill p-value rises to **0.386**
+with a CI of **[-0.50, 0.65]**, spanning zero. The bootstrap cannot reject
 "this excess return is indistinguishable from noise," which is the correct
 read: only 1 of 34 trials shows positive excess Sharpe in the first place.
 

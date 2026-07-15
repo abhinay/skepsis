@@ -106,7 +106,7 @@ inside the plateau range. The only rule that fires is PBO: **0.448 > 0.2
 - DSR 0.345 < 0.5 (fail)
 - stability score ∞ (isolated spike) > 2.0 (fail)
 - PBO 0.405 > 0.2 (warn)
-- bootstrap no-skill p 0.372 > 0.05 (warn)
+- bootstrap no-skill p 0.386 > 0.05 (warn)
 ```
 
 Two fails are already enough on their own; the two warns confirm the same
